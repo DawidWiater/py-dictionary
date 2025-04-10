@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Any, Union, Iterator
 
 
 class _Node:
@@ -11,21 +11,29 @@ class Dictionary:
     def __init__(self) -> None:
         self.__initial_capacity = 8
         self.__size = 0
-        self.__buckets = [[] for _ in range(self.__initial_capacity)]
+        self.__buckets: list[list[_Node] | None] = [None] * self.__initial_capacity  # O(n)
 
     def __resize(self) -> None:
         new_capacity = len(self.__buckets) * 2
-        new_buckets = [[] for _ in range(new_capacity)]
+        new_buckets: list[list[_Node] | None] = [None] * new_capacity
 
         for bucket in self.__buckets:
-            for node in bucket:
-                new_index = hash(node.key) % new_capacity
-                new_buckets[new_index].append(node)
+            if bucket is not None:
+                for node in bucket:
+                    new_index = hash(node.key) % new_capacity
+                    if new_buckets[new_index] is None:
+                        new_buckets[new_index] = []
+                    new_buckets[new_index].append(node)
+
         self.__buckets = new_buckets
 
     def __setitem__(self, key: Any, value: Any) -> None:
         bucket_index = hash(key) % len(self.__buckets)
         bucket = self.__buckets[bucket_index]
+
+        if bucket is None:
+            bucket = []
+            self.__buckets[bucket_index] = bucket
 
         for node in bucket:
             if node.key == key:
@@ -41,9 +49,11 @@ class Dictionary:
     def __getitem__(self, key: Any) -> Any:
         bucket_index = hash(key) % len(self.__buckets)
         bucket = self.__buckets[bucket_index]
-        for node in bucket:
-            if node.key == key:
-                return node.value
+
+        if bucket is not None:
+            for node in bucket:
+                if node.key == key:
+                    return node.value
 
         raise KeyError(f"Key {key} not found")
 
@@ -54,20 +64,23 @@ class Dictionary:
         bucket_index = hash(key) % len(self.__buckets)
         bucket = self.__buckets[bucket_index]
 
-        for i, node in enumerate(bucket):
-            if node.key == key:
-                bucket.pop(i)
-                self.__size -= 1
-                return
+        if bucket is not None:
+            for i, node in enumerate(bucket):
+                if node.key == key:
+                    bucket.pop(i)
+                    self.__size -= 1
+                    return
+
         raise KeyError(f"Key {key} not found")
 
     def get(self, key: Any, default: Any = None) -> Any:
         bucket_index = hash(key) % len(self.__buckets)
         bucket = self.__buckets[bucket_index]
 
-        for node in bucket:
-            if node.key == key:
-                return node.value
+        if bucket is not None:
+            for node in bucket:
+                if node.key == key:
+                    return node.value
 
         return default
 
@@ -75,10 +88,11 @@ class Dictionary:
         bucket_index = hash(key) % len(self.__buckets)
         bucket = self.__buckets[bucket_index]
 
-        for i, node in enumerate(bucket):
-            if node.key == key:
-                self.__size -= 1
-                return bucket.pop(i).value
+        if bucket is not None:
+            for i, node in enumerate(bucket):
+                if node.key == key:
+                    self.__size -= 1
+                    return bucket.pop(i).value
 
         if default is not None:
             return default
@@ -88,25 +102,17 @@ class Dictionary:
     def update(self, other: Union[dict, "Dictionary"]) -> None:
         if isinstance(other, Dictionary):
             for bucket in other.__buckets:
-                for node in bucket:
-                    self[node.key] = node.value
+                if bucket is not None:
+                    for node in bucket:
+                        self[node.key] = node.value
         elif isinstance(other, dict):
             for key, value in other.items():
                 self[key] = value
         else:
             raise TypeError("Argument must be of type dict or Dictionary")
 
-    def __iter__(self) -> None:
+    def __iter__(self) -> Iterator[Any]:
         for bucket in self.__buckets:
-            for node in bucket:
-                yield node.key
-
-
-if __name__ == "__main__":
-    d = Dictionary()
-    d["a"] = 1
-    d["b"] = 2
-    d["c"] = 3
-
-    for key in d:
-        print(f"{key} -> {d[key]}")
+            if bucket is not None:
+                for node in bucket:
+                    yield node.key
